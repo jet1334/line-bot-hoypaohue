@@ -67,7 +67,7 @@ export function joinCard(bill: BillFull): FlexMessage {
 
   return {
     type: 'flex',
-    altText: `📢 บิลใหม่: ${bill.title} — กดเพื่อเข้าร่วม`,
+    altText: `📢 บิลใหม่: ${bill.title} — เปิด LIFF เพื่อเข้าร่วม`,
     contents: {
       type: 'bubble',
       header: {
@@ -107,15 +107,10 @@ export function joinCard(bill: BillFull): FlexMessage {
             type: 'button',
             style: 'primary',
             color: COLOR.primary,
-            action: { type: 'postback', label: '🙋 เข้าร่วมบิล', data: `action=join&billId=${bill.id}`, displayText: 'ขอเข้าร่วมบิล' },
-          },
-          {
-            type: 'button',
-            style: 'secondary',
             action: {
               type: 'uri',
-              label: '⚙️ ปิดรับ & จัดการยอด (เจ้าของ)',
-              uri: liffUrl({ view: 'manage', billId: bill.id }),
+              label: '📱 เปิดดูบิล / เข้าร่วม (บน LIFF)',
+              uri: liffUrl({ view: 'detail', billId: bill.id }),
             },
           },
         ],
@@ -177,12 +172,11 @@ export function billCard(bill: BillFull, cycleId: string): FlexMessage {
           type: 'button',
           style: 'primary',
           color: COLOR.primary,
-          action: { type: 'postback', label: '💸 จ่ายแล้ว (แนบสลิป)', data: `action=pay_slip&cycleId=${cycle?.id}`, displayText: 'ฉันจ่ายแล้ว (แนบสลิป)' },
-        },
-        {
-          type: 'button',
-          style: 'secondary',
-          action: { type: 'postback', label: '💵 จ่ายเงินสด', data: `action=pay_cash&cycleId=${cycle?.id}`, displayText: 'ฉันจ่ายเงินสด' },
+          action: {
+            type: 'uri',
+            label: '💸 ชำระเงิน / ดูบิล (บน LIFF)',
+            uri: liffUrl({ view: 'detail', billId: bill.id }),
+          },
         },
       ],
     },
@@ -200,64 +194,6 @@ export function billCard(bill: BillFull, cycleId: string): FlexMessage {
   }
 
   return { type: 'flex', altText: `💰 บิล ${bill.title} — ดูยอดและจ่ายเงิน`, contents: bubble };
-}
-
-/** การ์ดให้เจ้าของยืนยันการจ่าย (สลิป/เงินสด) */
-export function confirmPaymentCard(charge: {
-  id: string;
-  amountSatang: number;
-  method: string | null;
-  slipImagePath: string | null;
-  user: { displayName: string };
-  cycle: { bill: { title: string } };
-}): FlexMessage {
-  const isSlip = charge.method === PaymentMethod.SLIP;
-  const bubble: messagingApi.FlexBubble = {
-    type: 'bubble',
-    body: {
-      type: 'box',
-      layout: 'vertical',
-      spacing: 'sm',
-      contents: [
-        { type: 'text', text: '🔔 รอเจ้าของยืนยันการจ่าย', size: 'sm', weight: 'bold', color: COLOR.pending },
-        { type: 'text', text: charge.cycle.bill.title, size: 'md', weight: 'bold', wrap: true },
-        infoRow('ผู้จ่าย', charge.user.displayName),
-        infoRow('ยอด', `${satangToBaht(charge.amountSatang)} บ.`),
-        infoRow('ช่องทาง', isSlip ? 'โอน (แนบสลิป)' : 'เงินสด'),
-      ],
-    },
-    footer: {
-      type: 'box',
-      layout: 'horizontal',
-      spacing: 'sm',
-      contents: [
-        {
-          type: 'button',
-          style: 'primary',
-          color: COLOR.primary,
-          action: { type: 'postback', label: '✅ ยืนยัน', data: `action=confirm&chargeId=${charge.id}`, displayText: 'ยืนยันการจ่าย' },
-        },
-        {
-          type: 'button',
-          style: 'secondary',
-          action: { type: 'postback', label: '❌ ปฏิเสธ', data: `action=reject&chargeId=${charge.id}`, displayText: 'ปฏิเสธการจ่าย' },
-        },
-      ],
-    },
-  };
-
-  if (isSlip && charge.slipImagePath) {
-    bubble.hero = {
-      type: 'image',
-      url: publicUrl(charge.slipImagePath),
-      size: 'full',
-      aspectRatio: '3:4',
-      aspectMode: 'fit',
-      backgroundColor: '#FFFFFF',
-    };
-  }
-
-  return { type: 'flex', altText: `🔔 ${charge.user.displayName} แจ้งจ่าย ${charge.cycle.bill.title}`, contents: bubble };
 }
 
 /** การ์ดสรุปเมื่อจ่ายครบทุกคน */

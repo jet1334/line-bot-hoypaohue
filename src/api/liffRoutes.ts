@@ -2,12 +2,14 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from '../db/prisma.js';
-import { upsertUser, upsertGroup } from '../features/user.js';
+import { upsertUser, upsertGroup, syncGroupMember } from '../features/user.js';
 import { createBill, getBillFull, finalizeBill, setCustomAmounts } from '../features/bill/billService.js';
+import { joinBill } from '../features/bill/participant.js';
 import { bahtToSatang, satangToBaht } from '../features/bill/split.js';
-import { saveBuffer } from '../storage/files.js';
-import { pushJoinCard, pushBillCard } from '../line/notify.js';
-import { BillStatus, Recurrence, SplitMode } from '../constants.js';
+import { saveBuffer, publicUrl } from '../storage/files.js';
+import { pushJoinCard, pushBillCard, notifyIfCycleCompleted } from '../line/notify.js';
+import { attachSlip, markCash, confirmCharge, rejectCharge, getChargeFull } from '../features/payment/paymentService.js';
+import { BillStatus, ChargeStatus, Recurrence, SplitMode } from '../constants.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 export const liffRouter = Router();
@@ -112,6 +114,92 @@ liffRouter.get('/bills/:id', async (req, res) => {
   });
 });
 
+// GET /api/bills/:id/detail — ดึงรายละเอียดบิลฉบับสมบูรณ์สำหรับแสดงผลบน LIFF
+liffRouter.get('/bills/:id/detail', async (req, res) => {
+  const bill = await getBillFull(req.params.id);
+  if (!bill) return res.status(404).json({ error: 'not found' });
+
+  const profile = await getProfileFromToken(req.headers.authorization);
+  const currentUserId = profile?.userId ?? null;
+
+  const currentCycle = bill.cycles[bill.cycles.length - 1] ?? null;
+
+  res.json({
+    id: bill.id,
+    title: bill.title,
+    note: bill.note,
+    status: bill.status,
+    splitMode: bill.splitMode,
+    totalBaht: bill.totalSatang != null ? satangToBaht(bill.totalSatang) : null,
+    ownerId: bill.ownerId,
+    ownerName: bill.owner.displayName,
+    bankName: bill.bankName,
+    accountNumber: bill.accountNumber,
+    accountName: bill.accountName,
+    qrUrl: bill.qrImagePath ? publicUrl(bill.qrImagePath) : null,
+    participants: bill.participants.map((p) => ({
+      userId: p.userId,
+      displayName: p.user.displayName,
+      pictureUrl: p.user.pictureUrl,
+    })),
+    currentCycle: currentCycle
+      ? {
+          id: currentCycle.id,
+          cycleNo: currentCycle.cycleNo,
+          dueDate: currentCycle.dueDate.toISOString().slice(0, 10),
+          status: currentCycle.status,
+          charges: currentCycle.charges.map((c) => ({
+            id: c.id,
+            userId: c.userId,
+            displayName: c.user.displayName,
+            pictureUrl: c.user.pictureUrl,
+            amountBaht: satangToBaht(c.amountSatang),
+            status: c.status,
+            method: c.method,
+            slipUrl: c.slipImagePath ? publicUrl(c.slipImagePath) : null,
+            paidAt: c.paidAt?.toISOString() ?? null,
+          })),
+        }
+      : null,
+    currentUser: currentUserId
+      ? {
+          userId: currentUserId,
+          displayName: profile?.displayName,
+          isOwner: bill.ownerId === currentUserId,
+          isParticipant: bill.participants.some((p) => p.userId === currentUserId),
+          myCharge: currentCycle
+            ? currentCycle.charges
+                .filter((c) => c.userId === currentUserId)
+                .map((c) => ({
+                  id: c.id,
+                  amountBaht: satangToBaht(c.amountSatang),
+                  status: c.status,
+                  method: c.method,
+                  slipUrl: c.slipImagePath ? publicUrl(c.slipImagePath) : null,
+                }))[0] ?? null
+            : null,
+        }
+      : null,
+  });
+});
+
+// POST /api/bills/:id/join — เข้าร่วมบิลผ่าน LIFF
+liffRouter.post('/bills/:id/join', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const bill = await getBillFull(req.params.id);
+  if (!bill) return res.status(404).json({ error: 'not found' });
+  if (bill.status !== BillStatus.OPEN_JOIN) return res.status(400).json({ error: 'บิลนี้ปิดรับสมาชิกแล้ว' });
+
+  await upsertUser(profile.userId, profile.displayName, profile.pictureUrl);
+  await syncGroupMember(bill.groupId, profile.userId);
+  const { created } = await joinBill(bill.id, profile.userId);
+  const count = await prisma.participant.count({ where: { billId: bill.id } });
+
+  res.json({ ok: true, created, count });
+});
+
 const finalizeSchema = z.object({
   splitMode: z.enum([SplitMode.EQUAL, SplitMode.CUSTOM]),
   amounts: z.array(z.object({ userId: z.string(), baht: z.string() })).optional(),
@@ -155,4 +243,61 @@ liffRouter.post('/bills/:id/finalize', async (req, res) => {
   const cycle = await finalizeBill(bill.id);
   await pushBillCard(bill.id, cycle.id);
   res.json({ ok: true, cycleId: cycle.id });
+});
+
+// POST /api/charges/:id/pay-slip — อัปโหลดไฟล์สลิปบน LIFF
+liffRouter.post('/charges/:id/pay-slip', upload.single('slip'), async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+  if (!req.file) return res.status(400).json({ error: 'กรุณาแนบไฟล์สลิป' });
+
+  const charge = await getChargeFull(req.params.id);
+  if (!charge) return res.status(404).json({ error: 'not found' });
+  if (charge.userId !== profile.userId) return res.status(403).json({ error: 'not your charge' });
+  if (charge.status === ChargeStatus.PAID) return res.status(400).json({ error: 'รายการนี้จ่ายเรียบร้อยแล้ว' });
+
+  const path = await saveBuffer('slips', req.file.buffer, req.file.mimetype);
+  const updated = await attachSlip(charge.id, path);
+
+  res.json({ ok: true, chargeId: updated.id, status: updated.status });
+});
+
+// POST /api/charges/:id/pay-cash — แจ้งชำระเงินสดบน LIFF
+liffRouter.post('/charges/:id/pay-cash', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const charge = await getChargeFull(req.params.id);
+  if (!charge) return res.status(404).json({ error: 'not found' });
+  if (charge.userId !== profile.userId) return res.status(403).json({ error: 'not your charge' });
+  if (charge.status === ChargeStatus.PAID) return res.status(400).json({ error: 'รายการนี้จ่ายเรียบร้อยแล้ว' });
+
+  const updated = await markCash(charge.id);
+  res.json({ ok: true, chargeId: updated.id, status: updated.status });
+});
+
+const confirmSchema = z.object({
+  approve: z.boolean(),
+});
+
+// POST /api/charges/:id/confirm — เจ้าของกดยืนยัน/ปฏิเสธการจ่ายบน LIFF
+liffRouter.post('/charges/:id/confirm', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const charge = await getChargeFull(req.params.id);
+  if (!charge) return res.status(404).json({ error: 'not found' });
+  if (charge.cycle.bill.ownerId !== profile.userId) return res.status(403).json({ error: 'เฉพาะเจ้าของบิลเท่านั้น' });
+
+  const parsed = confirmSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  if (parsed.data.approve) {
+    await confirmCharge(charge.id);
+    const completed = await notifyIfCycleCompleted(charge.cycleId);
+    res.json({ ok: true, action: 'approved', completed });
+  } else {
+    await rejectCharge(charge.id);
+    res.json({ ok: true, action: 'rejected', completed: false });
+  }
 });

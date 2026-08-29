@@ -88,6 +88,76 @@
         <button type="submit" id="manage-submit">ปิดรับ & ส่งบิล</button>
       </form>
 
+      <!-- ===== หน้าดูรายละเอียด & ดำเนินการ (Detail View) ===== -->
+      <div id="detail-view" class="view" hidden>
+        <div class="card header-card">
+          <div class="flex-between">
+            <span id="detail-status-badge" class="badge"></span>
+            <span id="detail-owner-name" class="muted text-sm"></span>
+          </div>
+          <h1 id="detail-title"></h1>
+          <p id="detail-note" class="muted text-sm"></p>
+          <div id="detail-meta" class="meta-info"></div>
+        </div>
+
+        <!-- Section: OPEN_JOIN -->
+        <div id="section-join" class="card" hidden>
+          <h2>👥 ผู้เข้าร่วม (<span id="detail-pcount">0</span>)</h2>
+          <div id="detail-participants-list" class="user-list"></div>
+          <div id="join-actions" class="actions-group">
+            <button id="btn-join" class="btn primary">🙋 เข้าร่วมบิลนี้</button>
+            <button id="btn-goto-manage" class="btn secondary" hidden>⚙️ ปิดรับ & จัดการยอด (เจ้าของ)</button>
+          </div>
+        </div>
+
+        <!-- Section: Payment Info & Charges (ACTIVE / DONE) -->
+        <div id="section-payment" class="card" hidden>
+          <h2>💳 ข้อมูลการชำระเงิน</h2>
+          <div id="bank-info-box" class="bank-box"></div>
+          <div id="qr-preview-box" class="center-box" hidden>
+            <p class="text-sm muted">สแกนจ่ายด้วย QR พร้อมเพย์</p>
+            <img id="detail-qr-img" class="qr-img" alt="QR Code" />
+          </div>
+        </div>
+
+        <!-- Section: Member Payment Action -->
+        <div id="section-my-pay" class="card highlight-card" hidden>
+          <h2>💸 ส่วนชำระเงินของคุณ</h2>
+          <div id="my-charge-summary"></div>
+          
+          <!-- Form: Attach Slip -->
+          <form id="form-pay-slip" class="pay-form" hidden>
+            <label>แนบรูปสลิปการโอนเงิน *</label>
+            <input type="file" id="slip-file-input" accept="image/*" required />
+            <button type="submit" id="btn-submit-slip" class="btn primary">📤 ส่งสลิปโอนเงิน</button>
+          </form>
+
+          <div id="pay-cash-wrap" hidden>
+            <div class="divider">หรือ</div>
+            <button id="btn-pay-cash" class="btn outline">💵 แจ้งชำระเงินสด</button>
+          </div>
+
+          <div id="my-charge-status" hidden></div>
+        </div>
+
+        <!-- Section: Charges List & Owner Audit Dashboard -->
+        <div id="section-charges-list" class="card" hidden>
+          <h2>📋 รายการเรียกเก็บ & สถานะ</h2>
+          <div id="charges-list" class="charges-list"></div>
+        </div>
+
+        <button id="btn-refresh-detail" class="btn text-btn">🔄 รีเฟรชข้อมูล</button>
+      </div>
+
+      <!-- Modal: ดูรูปสลิปขยายใหญ่ -->
+      <div id="slip-modal" class="modal" hidden>
+        <div class="modal-content center">
+          <span id="close-slip-modal" class="modal-close">&times;</span>
+          <h3>🧾 สลิปการโอนเงิน</h3>
+          <img id="modal-slip-img" class="modal-img" alt="สลิปโอนเงิน" />
+        </div>
+      </div>
+
       <div id="done" class="view center" hidden>
         <div class="big">✅</div>
         <p id="done-msg">สำเร็จ</p>

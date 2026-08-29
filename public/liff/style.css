@@ -3,6 +3,10 @@
   --gray: #8c8c8c;
   --bg: #f7f8fa;
   --line: #e3e6ea;
+  --danger: #e03131;
+  --warning: #f08c00;
+  --light-green: #e6fcf5;
+  --light-warning: #fff9db;
 }
 * { box-sizing: border-box; }
 body {
@@ -13,8 +17,8 @@ body {
   font-size: 16px;
 }
 #app { max-width: 520px; margin: 0 auto; padding: 16px; }
-h1 { font-size: 20px; margin: 8px 0 16px; }
-h2 { font-size: 15px; margin: 20px 0 8px; color: var(--gray); }
+h1 { font-size: 20px; margin: 8px 0 12px; }
+h2 { font-size: 15px; margin: 0 0 12px; color: var(--gray); font-weight: 600; }
 label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 4px; }
 small { color: var(--gray); font-size: 12px; display: block; margin-top: 4px; }
 input, textarea, select {
@@ -31,19 +35,80 @@ input[type="radio"] { width: auto; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 button {
   width: 100%;
-  margin-top: 24px;
-  padding: 14px;
+  margin-top: 16px;
+  padding: 13px;
   background: var(--green);
   color: #fff;
   border: none;
   border-radius: 12px;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
+  cursor: pointer;
 }
-button:disabled { opacity: 0.5; }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.btn { width: 100%; margin-top: 12px; padding: 12px; border-radius: 10px; font-weight: 600; text-align: center; }
+.btn.primary { background: var(--green); color: #fff; border: none; }
+.btn.secondary { background: #111; color: #fff; border: none; }
+.btn.outline { background: transparent; border: 1.5px solid var(--line); color: #333; }
+.btn.text-btn { background: transparent; border: none; color: var(--gray); font-size: 14px; text-decoration: underline; }
+
+.btn-sm { width: auto; padding: 6px 12px; font-size: 13px; margin: 0; border-radius: 6px; }
+.btn-sm.primary { background: var(--green); color: #fff; border: none; }
+.btn-sm.danger { background: var(--danger); color: #fff; border: none; }
+.btn-sm.outline { background: #fff; border: 1px solid var(--line); color: #333; }
+
 .center { text-align: center; padding: 40px 16px; }
 .big { font-size: 56px; }
-.muted { color: var(--gray); font-size: 14px; margin-bottom: 8px; }
+.muted { color: var(--gray); }
+.text-sm { font-size: 13px; }
+.mono { font-family: monospace; font-size: 15px; }
+
+/* Cards */
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+.card.highlight-card {
+  border: 2px solid var(--green);
+  background: #f4fbf7;
+}
+
+/* Header & Badges */
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--line);
+  color: #333;
+}
+.badge.primary { background: #e6fcf5; color: var(--green); }
+.badge.warning { background: var(--light-warning); color: var(--warning); }
+.badge.success { background: var(--light-green); color: var(--green); }
+
+.meta-info { font-size: 13px; color: var(--gray); margin-top: 8px; }
+
+/* Participants */
+.user-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.p-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  border: 1px solid var(--line);
+}
+.p-avatar-sm { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
+
 .p-row {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 0; border-bottom: 1px solid var(--line);
@@ -51,3 +116,52 @@ button:disabled { opacity: 0.5; }
 .p-row .name { flex: 1; font-weight: 500; }
 .p-row input { width: 120px; }
 .p-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--line); object-fit: cover; }
+
+/* Payment & Charges */
+.bank-box { background: var(--bg); padding: 12px; border-radius: 10px; margin-bottom: 12px; }
+.bank-row { margin-bottom: 4px; font-size: 14px; }
+.center-box { text-align: center; margin: 12px 0; }
+.qr-img { max-width: 200px; width: 100%; border-radius: 12px; border: 1px solid var(--line); padding: 6px; background: #fff; }
+
+.pay-amount-box { text-align: center; margin-bottom: 16px; }
+.big-amount { font-size: 32px; font-weight: 800; color: var(--green); margin-top: 4px; }
+.big-amount .unit { font-size: 16px; font-weight: 600; color: #111; }
+
+.divider { text-align: center; font-size: 12px; color: var(--gray); margin: 16px 0; position: relative; }
+.divider::before, .divider::after { content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: var(--line); }
+.divider::before { left: 0; }
+.divider::after { right: 0; }
+
+.alert { padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; text-align: center; }
+.alert.warning { background: var(--light-warning); color: #856404; }
+.alert.success { background: var(--light-green); color: #0f5132; }
+
+.charge-card {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.charge-card:last-child { border-bottom: none; }
+.charge-row { display: flex; justify-content: space-between; align-items: center; }
+.user-info { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.charge-right { text-align: right; }
+.charge-baht { font-weight: 700; margin-right: 8px; }
+
+.status-pill { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 12px; display: inline-block; }
+.status-pill.paid { color: var(--green); background: var(--light-green); }
+.status-pill.pending { color: var(--warning); background: var(--light-warning); }
+.status-pill.unpaid { color: var(--gray); background: var(--bg); }
+
+.owner-audit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+
+/* Modal Lightbox */
+.modal {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999; padding: 16px;
+}
+.modal-content {
+  background: #fff; border-radius: 16px; padding: 20px; max-width: 400px; width: 100%; position: relative;
+}
+.modal-close { position: absolute; top: 12px; right: 16px; font-size: 24px; cursor: pointer; color: var(--gray); }
+.modal-img { max-width: 100%; max-height: 60vh; object-fit: contain; border-radius: 8px; margin-top: 10px; }

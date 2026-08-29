@@ -1,5 +1,5 @@
 import { lineClient } from './client.js';
-import { billCard, joinCard, summaryCard, confirmPaymentCard } from './flex.js';
+import { billCard, joinCard, summaryCard } from './flex.js';
 import { getBillFull } from '../features/bill/billService.js';
 import { checkAndCompleteCycle } from '../features/cycle/cycleService.js';
 import { prisma } from '../db/prisma.js';
@@ -16,11 +16,6 @@ export async function pushBillCard(billId: string, cycleId: string) {
   const bill = await getBillFull(billId);
   if (!bill) return;
   await lineClient.pushMessage({ to: bill.groupId, messages: [billCard(bill, cycleId)] });
-}
-
-/** ส่งการ์ดให้เจ้าของยืนยันการจ่ายเข้ากลุ่ม */
-export async function pushConfirmCard(charge: Parameters<typeof confirmPaymentCard>[0], groupId: string) {
-  await lineClient.pushMessage({ to: groupId, messages: [confirmPaymentCard(charge)] });
 }
 
 /**
