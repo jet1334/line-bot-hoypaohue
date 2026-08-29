@@ -1,5 +1,27 @@
 /* global liff, LIFF_CONFIG */
-const params = new URLSearchParams(location.search);
+
+function getQueryParams() {
+  const urlParams = new URLSearchParams(location.search);
+  const liffState = urlParams.get('liff.state');
+  if (liffState) {
+    try {
+      const decodedState = decodeURIComponent(liffState);
+      const qIndex = decodedState.indexOf('?');
+      const rawQs = qIndex !== -1 ? decodedState.slice(qIndex + 1) : decodedState.replace(/^\//, '');
+      const stateParams = new URLSearchParams(rawQs);
+      for (const [key, value] of stateParams.entries()) {
+        if (!urlParams.has(key)) {
+          urlParams.set(key, value);
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing liff.state:', e);
+    }
+  }
+  return urlParams;
+}
+
+const params = getQueryParams();
 const view = params.get('view') || (params.get('billId') ? 'detail' : 'create');
 
 const $ = (id) => document.getElementById(id);
@@ -15,12 +37,20 @@ function fail(msg) {
   show('error');
 }
 
+function updateVersionDisplay() {
+  const el = $('liff-version');
+  if (el) {
+    const ver = (typeof LIFF_CONFIG !== 'undefined' && LIFF_CONFIG.version) ? LIFF_CONFIG.version : '';
+    if (ver) {
+      el.textContent = ver;
+    }
+  }
+}
+
 let accessToken = null;
 
 async function main() {
-  if ($('liff-version')) {
-    $('liff-version').textContent = (typeof LIFF_CONFIG !== 'undefined' && LIFF_CONFIG.version) ? LIFF_CONFIG.version : 'dev';
-  }
+  updateVersionDisplay();
 
   try {
     await liff.init({ liffId: LIFF_CONFIG.liffId });
@@ -157,7 +187,7 @@ async function initManage() {
     const splitMode = form.mSplit.value;
     const payload = { splitMode };
     if (splitMode === 'CUSTOM') {
-      const inputs = [...form.querySelectorAll('#participants input[data-uid]')];
+      const inputs = [...form.querySelectorAll('#participants input[data-uid]')] ;
       const amounts = inputs.map((i) => ({ userId: i.dataset.uid, baht: i.value }));
       if (amounts.some((a) => !(Number(a.baht) >= 0) || a.baht === '')) {
         return alert('กรุณากรอกยอดให้ครบทุกคน');
@@ -513,5 +543,8 @@ $('slip-modal').onclick = (e) => {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+
+// Initial version update on DOM load
+document.addEventListener('DOMContentLoaded', updateVersionDisplay);
 
 main();

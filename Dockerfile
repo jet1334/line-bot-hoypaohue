@@ -3,6 +3,7 @@ FROM node:22-slim AS build
 WORKDIR /app
 # openssl จำเป็นสำหรับ Prisma, git ใช้สำหรับดึง commit hash
 RUN apt-get update -y && apt-get install -y openssl git && rm -rf /var/lib/apt/lists/*
+RUN git config --global --add safe.directory '*'
 COPY package*.json ./
 RUN npm ci
 COPY prisma ./prisma
@@ -11,7 +12,7 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY public ./public
 COPY .git ./.git
-RUN mkdir -p public && (echo "{\"version\":\"$(git rev-parse --short HEAD)\"}" > public/version.json || echo "{\"version\":\"0.1.0\"}" > public/version.json)
+RUN mkdir -p public && (HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "e78a53e") && echo "{\"version\":\"$HASH\"}" > public/version.json)
 RUN npm run build
 
 # ---------- runtime stage ----------

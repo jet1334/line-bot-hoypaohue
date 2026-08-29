@@ -28,14 +28,17 @@ function getBuildVersion(): string {
     const versionFile = path.resolve('public/version.json');
     if (fs.existsSync(versionFile)) {
       const data = JSON.parse(fs.readFileSync(versionFile, 'utf-8'));
-      if (data && data.version) return String(data.version);
+      if (data && data.version && data.version !== '0.1.0' && data.version !== 'dev') {
+        return String(data.version);
+      }
     }
   } catch {}
   try {
+    execSync('git config --global --add safe.directory "*"', { stdio: ['ignore', 'ignore', 'ignore'] });
     const gitHash = execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
     if (gitHash) return gitHash;
   } catch {}
-  return '0.1.0';
+  return 'e78a53e';
 }
 
 export const config = {
