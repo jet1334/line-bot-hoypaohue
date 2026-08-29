@@ -144,41 +144,41 @@ liffRouter.get('/bills/:id/detail', async (req, res) => {
     })),
     currentCycle: currentCycle
       ? {
-          id: currentCycle.id,
-          cycleNo: currentCycle.cycleNo,
-          dueDate: currentCycle.dueDate.toISOString().slice(0, 10),
-          status: currentCycle.status,
-          charges: currentCycle.charges.map((c) => ({
-            id: c.id,
-            userId: c.userId,
-            displayName: c.user.displayName,
-            pictureUrl: c.user.pictureUrl,
-            amountBaht: satangToBaht(c.amountSatang),
-            status: c.status,
-            method: c.method,
-            slipUrl: c.slipImagePath ? publicUrl(c.slipImagePath) : null,
-            paidAt: c.paidAt?.toISOString() ?? null,
-          })),
-        }
+        id: currentCycle.id,
+        cycleNo: currentCycle.cycleNo,
+        dueDate: currentCycle.dueDate.toISOString().slice(0, 10),
+        status: currentCycle.status,
+        charges: currentCycle.charges.map((c) => ({
+          id: c.id,
+          userId: c.userId,
+          displayName: c.user.displayName,
+          pictureUrl: c.user.pictureUrl,
+          amountBaht: satangToBaht(c.amountSatang),
+          status: c.status,
+          method: c.method,
+          slipUrl: c.slipImagePath ? publicUrl(c.slipImagePath) : null,
+          paidAt: c.paidAt?.toISOString() ?? null,
+        })),
+      }
       : null,
     currentUser: currentUserId
       ? {
-          userId: currentUserId,
-          displayName: profile?.displayName,
-          isOwner: bill.ownerId === currentUserId,
-          isParticipant: bill.participants.some((p) => p.userId === currentUserId),
-          myCharge: currentCycle
-            ? currentCycle.charges
-                .filter((c) => c.userId === currentUserId)
-                .map((c) => ({
-                  id: c.id,
-                  amountBaht: satangToBaht(c.amountSatang),
-                  status: c.status,
-                  method: c.method,
-                  slipUrl: c.slipImagePath ? publicUrl(c.slipImagePath) : null,
-                }))[0] ?? null
-            : null,
-        }
+        userId: currentUserId,
+        displayName: profile?.displayName,
+        isOwner: bill.ownerId === currentUserId,
+        isParticipant: bill.participants.some((p) => p.userId === currentUserId),
+        myCharge: currentCycle
+          ? currentCycle.charges
+            .filter((c) => c.userId === currentUserId)
+            .map((c) => ({
+              id: c.id,
+              amountBaht: satangToBaht(c.amountSatang),
+              status: c.status,
+              method: c.method,
+              slipUrl: c.slipImagePath ? publicUrl(c.slipImagePath) : null,
+            }))[0] ?? null
+          : null,
+      }
       : null,
   });
 });

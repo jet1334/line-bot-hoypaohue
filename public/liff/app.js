@@ -84,7 +84,9 @@ function initCreate() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data.error) || 'error');
-      done('สร้างบิลแล้ว! การ์ดเชิญเข้าร่วมส่งเข้ากลุ่มเรียบร้อยแล้ว');
+      
+      // สลับไปที่หน้าดูรายละเอียดบิลบน LIFF ทันที
+      location.href = `?view=detail&billId=${data.billId}`;
     } catch (err) {
       $('create-submit').disabled = false;
       fail('สร้างบิลไม่สำเร็จ: ' + err.message);
@@ -168,7 +170,9 @@ async function initManage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data.error) || 'error');
-      done('ปิดรับและส่งบิลเข้ากลุ่มเรียบร้อยแล้ว!');
+      
+      // สลับไปที่หน้าดูรายละเอียดบิลบน LIFF ทันที
+      location.href = `?view=detail&billId=${billId}`;
     } catch (err) {
       $('manage-submit').disabled = false;
       fail('ปิดรับไม่สำเร็จ: ' + err.message);
@@ -501,14 +505,6 @@ $('close-slip-modal').onclick = () => {
 $('slip-modal').onclick = (e) => {
   if (e.target === $('slip-modal')) $('slip-modal').hidden = true;
 };
-
-function done(msg) {
-  $('done-msg').textContent = msg;
-  show('done');
-  setTimeout(() => {
-    if (liff.isInClient()) liff.closeWindow();
-  }, 1800);
-}
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
