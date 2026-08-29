@@ -2,6 +2,7 @@ import type { WebhookEvent, MessageEvent } from '@line/bot-sdk';
 import { lineClient } from './client.js';
 import { liffUrl } from './flex.js';
 import { upsertGroup } from '../features/user.js';
+import { config } from '../config.js';
 
 export async function handleEvents(events: WebhookEvent[]) {
   for (const event of events) {
@@ -48,6 +49,19 @@ async function handleEvent(event: WebhookEvent) {
 async function handleMessage(event: MessageEvent) {
   if (event.message.type !== 'text') return;
   const text = event.message.text.trim();
+
+  if (/^(!version|\/version|version|build)$/i.test(text)) {
+    await lineClient.replyMessage({
+      replyToken: event.replyToken,
+      messages: [
+        {
+          type: 'text',
+          text: `Hoypaohue Bill Bot\nbuild version ${config.BUILD_VERSION}`,
+        },
+      ],
+    });
+    return;
+  }
 
   if (/^(สร้างบิล|สร้าง|บิลใหม่|createbill|\/bill)$/i.test(text)) {
     await replyCreateBillPrompt(event);

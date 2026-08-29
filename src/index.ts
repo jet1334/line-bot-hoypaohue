@@ -24,10 +24,10 @@ app.post('/webhook', express.raw({ type: '*/*' }), (req, res) => {
 // ---- JSON parser สำหรับ API อื่นๆ ----
 app.use(express.json());
 
-// ---- LIFF config (inject LIFF_ID ให้ frontend) ----
+// ---- LIFF config (inject LIFF_ID + version ให้ frontend) ----
 app.get('/liff/config.js', (_req, res) => {
   res.type('application/javascript');
-  res.send(`window.LIFF_CONFIG = ${JSON.stringify({ liffId: config.LIFF_ID })};`);
+  res.send(`window.LIFF_CONFIG = ${JSON.stringify({ liffId: config.LIFF_ID, version: config.BUILD_VERSION })};`);
 });
 
 // ---- Static: LIFF frontend + ไฟล์อัปโหลด (QR/สลิป) ----
@@ -38,10 +38,10 @@ app.use('/uploads', express.static(path.resolve('data/uploads')));
 app.use('/api', liffRouter);
 
 // ---- Health check ----
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', (_req, res) => res.json({ ok: true, version: config.BUILD_VERSION }));
 
 app.listen(config.PORT, () => {
-  console.log(`✅ LINE Bill Bot listening on :${config.PORT}`);
+  console.log(`✅ LINE Bill Bot (v${config.BUILD_VERSION}) listening on :${config.PORT}`);
   console.log(`   BASE_URL = ${config.BASE_URL}`);
   startScheduler();
 });

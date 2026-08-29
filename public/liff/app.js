@@ -18,6 +18,10 @@ function fail(msg) {
 let accessToken = null;
 
 async function main() {
+  if ($('liff-version')) {
+    $('liff-version').textContent = (typeof LIFF_CONFIG !== 'undefined' && LIFF_CONFIG.version) ? LIFF_CONFIG.version : 'dev';
+  }
+
   try {
     await liff.init({ liffId: LIFF_CONFIG.liffId });
   } catch (e) {

@@ -52,6 +52,17 @@ function statusIcon(status: string): string {
   return '⬜';
 }
 
+function versionTag(): messagingApi.FlexText {
+  return {
+    type: 'text',
+    text: `build v${config.BUILD_VERSION}`,
+    size: 'xxs',
+    color: '#CCCCCC',
+    align: 'center',
+    margin: 'xs',
+  };
+}
+
 /** การ์ดเชิญเข้าร่วมบิล (สถานะ OPEN_JOIN) */
 export function joinCard(bill: BillFull): FlexMessage {
   const names = bill.participants.map((p) => p.user.displayName);
@@ -113,6 +124,7 @@ export function joinCard(bill: BillFull): FlexMessage {
               uri: liffUrl({ view: 'detail', billId: bill.id }),
             },
           },
+          versionTag(),
         ],
       },
     },
@@ -178,6 +190,7 @@ export function billCard(bill: BillFull, cycleId: string): FlexMessage {
             uri: liffUrl({ view: 'detail', billId: bill.id }),
           },
         },
+        versionTag(),
       ],
     },
   };
@@ -242,6 +255,7 @@ export function summaryCard(bill: BillFull, cycleId: string): FlexMessage {
               { type: 'text', text: `${satangToBaht(total)} บ.`, size: 'sm', weight: 'bold', align: 'end', flex: 5, color: COLOR.primary },
             ],
           },
+          versionTag(),
         ],
       },
     },
