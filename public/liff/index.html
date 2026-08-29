@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>บิลเรียกเก็บเงิน</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="./config.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <div id="loading" class="center">กำลังโหลด…</div>
+
+      <!-- ===== หน้าสร้างบิล ===== -->
+      <form id="create-view" class="view" hidden>
+        <h1>🧾 สร้างบิลใหม่</h1>
+
+        <label>ชื่อบิล *</label>
+        <input name="title" required maxlength="100" placeholder="เช่น ค่าน้ำค่าไฟเดือน ส.ค." />
+
+        <label>รายละเอียด (ไม่บังคับ)</label>
+        <textarea name="note" maxlength="300" rows="2" placeholder="โน้ตเพิ่มเติม"></textarea>
+
+        <label>การแบ่งยอด *</label>
+        <div class="radio-row">
+          <label><input type="radio" name="splitMode" value="EQUAL" checked /> หารเท่ากัน</label>
+          <label><input type="radio" name="splitMode" value="CUSTOM" /> กำหนดเองภายหลัง</label>
+        </div>
+
+        <div id="total-wrap">
+          <label>ยอดรวมทั้งบิล (บาท) *</label>
+          <input name="totalBaht" type="number" step="0.01" min="0" inputmode="decimal" placeholder="เช่น 1500.50" />
+          <small>ระบบจะหารเท่ากันตามจำนวนคนที่เข้าร่วม (รองรับทศนิยม)</small>
+        </div>
+
+        <label>วันครบกำหนดจ่าย *</label>
+        <input name="startDate" type="date" required />
+
+        <label>การเรียกเก็บซ้ำ</label>
+        <select name="recurrence">
+          <option value="NONE">ครั้งเดียว</option>
+          <option value="DAILY">ทุกวัน</option>
+          <option value="WEEKLY">ทุกสัปดาห์</option>
+          <option value="MONTHLY">ทุกเดือน</option>
+        </select>
+
+        <div id="recur-wrap" hidden>
+          <div class="grid2">
+            <div>
+              <label>ทุกๆ</label>
+              <input name="interval" type="number" min="1" max="365" value="1" />
+            </div>
+            <div>
+              <label>จำนวนครั้ง (ว่าง = ไม่จำกัด)</label>
+              <input name="repeatCount" type="number" min="1" max="365" placeholder="เช่น 12" />
+            </div>
+          </div>
+        </div>
+
+        <h2>ข้อมูลการรับเงิน (ไม่บังคับ)</h2>
+        <label>ธนาคาร</label>
+        <input name="bankName" maxlength="50" placeholder="เช่น กสิกรไทย" />
+        <label>เลขบัญชี</label>
+        <input name="accountNumber" maxlength="50" placeholder="xxx-x-xxxxx-x" />
+        <label>ชื่อบัญชี</label>
+        <input name="accountName" maxlength="100" placeholder="ชื่อ-นามสกุล" />
+        <label>QR พร้อมเพย์ (รูปภาพ)</label>
+        <input name="qr" type="file" accept="image/*" />
+
+        <button type="submit" id="create-submit">สร้างบิล</button>
+      </form>
+
+      <!-- ===== หน้าจัดการ/ปิดรับ ===== -->
+      <form id="manage-view" class="view" hidden>
+        <h1>⚙️ ปิดรับ & จัดการยอด</h1>
+        <div id="manage-title" class="muted"></div>
+
+        <label>วิธีคิดยอด</label>
+        <div class="radio-row">
+          <label><input type="radio" name="mSplit" value="EQUAL" checked /> หารเท่ากัน</label>
+          <label><input type="radio" name="mSplit" value="CUSTOM" /> กำหนดเอง</label>
+        </div>
+
+        <h2>ผู้เข้าร่วม (<span id="pcount">0</span>)</h2>
+        <div id="participants"></div>
+
+        <button type="submit" id="manage-submit">ปิดรับ & ส่งบิล</button>
+      </form>
+
+      <div id="done" class="view center" hidden>
+        <div class="big">✅</div>
+        <p id="done-msg">สำเร็จ</p>
+      </div>
+
+      <div id="error" class="view center" hidden>
+        <div class="big">⚠️</div>
+        <p id="error-msg"></p>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

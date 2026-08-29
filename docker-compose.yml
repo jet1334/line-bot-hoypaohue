@@ -1,0 +1,13 @@
+services:
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - DATABASE_URL=file:../data/app.db
+    volumes:
+      # เก็บ SQLite + รูปอัปโหลด (QR/สลิป) ให้คงอยู่นอก container
+      - ./data:/app/data

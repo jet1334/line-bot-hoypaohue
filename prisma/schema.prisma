@@ -1,0 +1,130 @@
+// LINE Bill Collection Bot — data model
+// หมายเหตุ: SQLite ไม่รองรับ enum จึงใช้ String (ค่าที่เป็นไปได้ระบุใน comment)
+//          ยอดเงินเก็บเป็น "สตางค์" (integer) เพื่อความแม่นยำ ไม่ใช้ float
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id // LINE userId
+  displayName  String
+  pictureUrl   String?
+  createdAt    DateTime      @default(now())
+
+  ownedBills   Bill[]        @relation("BillOwner")
+  participants Participant[]
+  charges      Charge[]
+}
+
+model Group {
+  id        String   @id // LINE groupId
+  name      String?
+  createdAt DateTime @default(now())
+
+  bills     Bill[]
+}
+
+model Bill {
+  id            String   @id @default(cuid())
+  groupId       String
+  ownerId       String
+  title         String
+  note          String?
+
+  // splitMode: EQUAL | CUSTOM
+  splitMode     String   @default("EQUAL")
+  // ยอดรวม (สตางค์) สำหรับโหมด EQUAL; โหมด CUSTOM เป็น null
+  totalSatang   Int?
+
+  // ข้อมูลการชำระ
+  accountName   String?
+  accountNumber String?
+  bankName      String?
+  qrImagePath   String?
+
+  // recurrence: NONE | DAILY | WEEKLY | MONTHLY
+  recurrence    String   @default("NONE")
+  interval      Int      @default(1) // ทุกๆ n หน่วย
+  repeatCount   Int?     // จำนวนรอบทั้งหมด (null = ไม่จำกัด)
+  startDate     DateTime
+
+  // status: DRAFT | OPEN_JOIN | ACTIVE | DONE | CANCELLED
+  status        String   @default("OPEN_JOIN")
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  group         Group        @relation(fields: [groupId], references: [id])
+  owner         User         @relation("BillOwner", fields: [ownerId], references: [id])
+  participants  Participant[]
+  cycles        BillCycle[]
+
+  @@index([groupId, status])
+}
+
+model Participant {
+  id            String   @id @default(cuid())
+  billId        String
+  userId        String
+  // ยอดที่กำหนดเอง (สตางค์); null = หารเท่ากัน
+  customSatang  Int?
+  createdAt     DateTime @default(now())
+
+  bill          Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id])
+
+  @@unique([billId, userId])
+}
+
+model BillCycle {
+  id             String   @id @default(cuid())
+  billId         String
+  cycleNo        Int      @default(1)
+  dueDate        DateTime
+  // status: COLLECTING | COMPLETED
+  status         String   @default("COLLECTING")
+  lastRemindedAt DateTime?
+  createdAt      DateTime @default(now())
+
+  bill           Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  charges        Charge[]
+
+  @@unique([billId, cycleNo])
+  @@index([status, dueDate])
+}
+
+model Charge {
+  id            String   @id @default(cuid())
+  cycleId       String
+  userId        String
+  amountSatang  Int
+  // status: UNPAID | PENDING | PAID
+  status        String   @default("UNPAID")
+  // method: SLIP | CASH | null
+  method        String?
+  slipImagePath String?
+  paidAt        DateTime?   // เวลาที่ผู้จ่ายแจ้ง (กดจ่าย/แนบสลิป)
+  confirmedAt   DateTime?   // เวลาที่เจ้าของยืนยัน
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  cycle         BillCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@unique([cycleId, userId])
+  @@index([status])
+}
+
+// สถานะรอผู้ใช้แนบรูปสลิป (รูปถัดไปที่ user ส่งมา = สลิปของ charge นี้)
+model SlipUploadState {
+  userId    String   @id
+  chargeId  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
