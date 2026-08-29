@@ -2,27 +2,48 @@
 
 function getQueryParams() {
   const urlParams = new URLSearchParams(location.search);
-  const liffState = urlParams.get('liff.state');
+
+  // LINE LIFF passes query params in 'liff.state' or 'state' (after OAuth login redirect)
+  const liffState = urlParams.get('liff.state') || urlParams.get('state');
   if (liffState) {
     try {
-      const decodedState = decodeURIComponent(liffState);
+      let decodedState = decodeURIComponent(liffState);
+      if (decodedState.includes('%3F') || decodedState.includes('%3D') || decodedState.includes('%26')) {
+        decodedState = decodeURIComponent(decodedState);
+      }
       const qIndex = decodedState.indexOf('?');
       const rawQs = qIndex !== -1 ? decodedState.slice(qIndex + 1) : decodedState.replace(/^\//, '');
       const stateParams = new URLSearchParams(rawQs);
       for (const [key, value] of stateParams.entries()) {
-        if (!urlParams.has(key)) {
+        if (key !== 'code' && key !== 'state' && key !== 'liff.state') {
           urlParams.set(key, value);
         }
       }
     } catch (e) {
-      console.error('Error parsing liff.state:', e);
+      console.error('Error parsing liffState:', e);
     }
   }
+
+  // Check hash string (#view=detail&billId=xxx)
+  if (location.hash) {
+    try {
+      const hashStr = location.hash.replace(/^#/, '');
+      const qIndex = hashStr.indexOf('?');
+      const rawHashQs = qIndex !== -1 ? hashStr.slice(qIndex + 1) : hashStr;
+      const hashParams = new URLSearchParams(rawHashQs);
+      for (const [key, value] of hashParams.entries()) {
+        urlParams.set(key, value);
+      }
+    } catch (e) {}
+  }
+
   return urlParams;
 }
 
 const params = getQueryParams();
-const view = params.get('view') || (params.get('billId') ? 'detail' : 'create');
+const billId = params.get('billId') || params.get('billid') || params.get('id');
+const rawView = params.get('view');
+const view = rawView || (billId ? 'detail' : 'create');
 
 const $ = (id) => document.getElementById(id);
 
@@ -132,12 +153,12 @@ function initCreate() {
 
 /* ---------- 2. หน้าปิดรับ & จัดการยอด ---------- */
 async function initManage() {
-  const billId = params.get('billId');
-  if (!billId) return fail('ไม่พบรหัสบิล');
+  const targetBillId = billId || params.get('billId');
+  if (!targetBillId) return fail('ไม่พบรหัสบิล (billId)');
 
   let bill;
   try {
-    const res = await fetch('/api/bills/' + billId);
+    const res = await fetch('/api/bills/' + targetBillId);
     bill = await res.json();
     if (!res.ok) throw new Error(bill.error || 'not found');
   } catch (e) {
@@ -146,7 +167,7 @@ async function initManage() {
 
   if (bill.status !== 'OPEN_JOIN') {
     // หากปิดรับไปแล้ว ให้เปลี่ยนไปหน้า detail
-    location.href = `?view=detail&billId=${billId}`;
+    location.href = `?view=detail&billId=${targetBillId}`;
     return;
   }
 
@@ -187,7 +208,7 @@ async function initManage() {
     const splitMode = form.mSplit.value;
     const payload = { splitMode };
     if (splitMode === 'CUSTOM') {
-      const inputs = [...form.querySelectorAll('#participants input[data-uid]')] ;
+      const inputs = [...form.querySelectorAll('#participants input[data-uid]')];
       const amounts = inputs.map((i) => ({ userId: i.dataset.uid, baht: i.value }));
       if (amounts.some((a) => !(Number(a.baht) >= 0) || a.baht === '')) {
         return alert('กรุณากรอกยอดให้ครบทุกคน');
@@ -197,7 +218,7 @@ async function initManage() {
 
     $('manage-submit').disabled = true;
     try {
-      const res = await fetch('/api/bills/' + billId + '/finalize', {
+      const res = await fetch('/api/bills/' + targetBillId + '/finalize', {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -206,7 +227,7 @@ async function initManage() {
       if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data.error) || 'error');
       
       // สลับไปที่หน้าดูรายละเอียดบิลบน LIFF ทันที
-      location.href = `?view=detail&billId=${billId}`;
+      location.href = `?view=detail&billId=${targetBillId}`;
     } catch (err) {
       $('manage-submit').disabled = false;
       fail('ปิดรับไม่สำเร็จ: ' + err.message);
@@ -218,12 +239,12 @@ async function initManage() {
 
 /* ---------- 3. หน้าดูรายละเอียด & ดำเนินการ (Detail View) ---------- */
 async function initDetail() {
-  const billId = params.get('billId');
-  if (!billId) return fail('ไม่พบรหัสบิล');
+  const targetBillId = billId || params.get('billId');
+  if (!targetBillId) return fail('ไม่พบรหัสบิล (billId)');
 
   let data;
   try {
-    const res = await fetch(`/api/bills/${billId}/detail`, {
+    const res = await fetch(`/api/bills/${targetBillId}/detail`, {
       headers: { Authorization: 'Bearer ' + accessToken },
     });
     data = await res.json();
@@ -300,7 +321,7 @@ async function initDetail() {
       btnJoin.onclick = async () => {
         btnJoin.disabled = true;
         try {
-          const res = await fetch(`/api/bills/${billId}/join`, {
+          const res = await fetch(`/api/bills/${targetBillId}/join`, {
             method: 'POST',
             headers: { Authorization: 'Bearer ' + accessToken },
           });
@@ -318,7 +339,7 @@ async function initDetail() {
     if (isOwner) {
       btnManage.hidden = false;
       btnManage.onclick = () => {
-        location.href = `?view=manage&billId=${billId}`;
+        location.href = `?view=manage&billId=${targetBillId}`;
       };
     } else {
       btnManage.hidden = true;
