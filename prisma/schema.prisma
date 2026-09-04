@@ -12,14 +12,17 @@ datasource db {
 }
 
 model User {
-  id           String        @id // LINE userId
-  displayName  String
-  pictureUrl   String?
-  createdAt    DateTime      @default(now())
+  id          String   @id // LINE userId
+  displayName String
+  pictureUrl  String?
+  createdAt   DateTime @default(now())
 
   ownedBills   Bill[]        @relation("BillOwner")
   participants Participant[]
   charges      Charge[]
+
+  ownedTrips  Trip[]       @relation("TripOwner")
+  tripMembers TripMember[]
 }
 
 model Group {
@@ -27,20 +30,21 @@ model Group {
   name      String?
   createdAt DateTime @default(now())
 
-  bills     Bill[]
+  bills Bill[]
+  trips Trip[]
 }
 
 model Bill {
-  id            String   @id @default(cuid())
-  groupId       String
-  ownerId       String
-  title         String
-  note          String?
+  id      String  @id @default(cuid())
+  groupId String
+  ownerId String
+  title   String
+  note    String?
 
   // splitMode: EQUAL | CUSTOM
-  splitMode     String   @default("EQUAL")
+  splitMode   String @default("EQUAL")
   // ยอดรวม (สตางค์) สำหรับโหมด EQUAL; โหมด CUSTOM เป็น null
-  totalSatang   Int?
+  totalSatang Int?
 
   // ข้อมูลการชำระ
   accountName   String?
@@ -49,73 +53,73 @@ model Bill {
   qrImagePath   String?
 
   // recurrence: NONE | DAILY | WEEKLY | MONTHLY
-  recurrence    String   @default("NONE")
-  interval      Int      @default(1) // ทุกๆ n หน่วย
-  repeatCount   Int?     // จำนวนรอบทั้งหมด (null = ไม่จำกัด)
-  startDate     DateTime
+  recurrence  String   @default("NONE")
+  interval    Int      @default(1) // ทุกๆ n หน่วย
+  repeatCount Int? // จำนวนรอบทั้งหมด (null = ไม่จำกัด)
+  startDate   DateTime
 
   // status: DRAFT | OPEN_JOIN | ACTIVE | DONE | CANCELLED
-  status        String   @default("OPEN_JOIN")
+  status String @default("OPEN_JOIN")
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  group         Group        @relation(fields: [groupId], references: [id])
-  owner         User         @relation("BillOwner", fields: [ownerId], references: [id])
-  participants  Participant[]
-  cycles        BillCycle[]
+  group        Group         @relation(fields: [groupId], references: [id])
+  owner        User          @relation("BillOwner", fields: [ownerId], references: [id])
+  participants Participant[]
+  cycles       BillCycle[]
 
   @@index([groupId, status])
 }
 
 model Participant {
-  id            String   @id @default(cuid())
-  billId        String
-  userId        String
+  id           String   @id @default(cuid())
+  billId       String
+  userId       String
   // ยอดที่กำหนดเอง (สตางค์); null = หารเท่ากัน
-  customSatang  Int?
-  createdAt     DateTime @default(now())
+  customSatang Int?
+  createdAt    DateTime @default(now())
 
-  bill          Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
-  user          User     @relation(fields: [userId], references: [id])
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
 
   @@unique([billId, userId])
 }
 
 model BillCycle {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   billId         String
-  cycleNo        Int      @default(1)
+  cycleNo        Int       @default(1)
   dueDate        DateTime
   // status: COLLECTING | COMPLETED
-  status         String   @default("COLLECTING")
+  status         String    @default("COLLECTING")
   lastRemindedAt DateTime?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime  @default(now())
 
-  bill           Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
-  charges        Charge[]
+  bill    Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  charges Charge[]
 
   @@unique([billId, cycleNo])
   @@index([status, dueDate])
 }
 
 model Charge {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   cycleId       String
   userId        String
   amountSatang  Int
   // status: UNPAID | PENDING | PAID
-  status        String   @default("UNPAID")
+  status        String    @default("UNPAID")
   // method: SLIP | CASH | null
   method        String?
   slipImagePath String?
-  paidAt        DateTime?   // เวลาที่ผู้จ่ายแจ้ง (กดจ่าย/แนบสลิป)
-  confirmedAt   DateTime?   // เวลาที่เจ้าของยืนยัน
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  paidAt        DateTime? // เวลาที่ผู้จ่ายแจ้ง (กดจ่าย/แนบสลิป)
+  confirmedAt   DateTime? // เวลาที่เจ้าของยืนยัน
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  cycle         BillCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  user          User      @relation(fields: [userId], references: [id])
+  cycle BillCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id])
 
   @@unique([cycleId, userId])
   @@index([status])
@@ -127,4 +131,69 @@ model SlipUploadState {
   chargeId  String
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+// ===== Trip Bill (itemized split) — ระบบจดบิลทริป แยกจากบิลเก็บเงินเดิม =====
+
+model Trip {
+  id        String   @id @default(cuid())
+  groupId   String
+  ownerId   String
+  title     String
+  note      String?
+  // status: OPEN | DONE | CANCELLED
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group   Group        @relation(fields: [groupId], references: [id])
+  owner   User         @relation("TripOwner", fields: [ownerId], references: [id])
+  members TripMember[]
+  items   TripItem[]
+
+  @@index([groupId, status])
+}
+
+model TripMember {
+  id        String   @id @default(cuid())
+  tripId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id])
+  shares    TripItemShare[]
+  paidItems TripItem[]      @relation("ItemPayer")
+
+  @@unique([tripId, userId])
+}
+
+model TripItem {
+  id          String   @id @default(cuid())
+  tripId      String
+  name        String
+  remark      String?
+  priceSatang Int
+  // ผู้สำรองจ่าย = TripMember.id (null ระหว่างกรอก)
+  payerId     String?
+  createdAt   DateTime @default(now())
+
+  trip   Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  payer  TripMember?     @relation("ItemPayer", fields: [payerId], references: [id])
+  shares TripItemShare[]
+
+  @@index([tripId])
+}
+
+model TripItemShare {
+  id          String @id @default(cuid())
+  itemId      String
+  memberId    String
+  // null = ร่วมแบบหารเท่า; มีค่า = จ่ายยอดตรงนี้ (สตางค์)
+  fixedSatang Int?
+
+  item   TripItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  member TripMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, memberId])
 }
