@@ -158,6 +158,80 @@
         </div>
       </div>
 
+      <!-- ===== หน้าจดบิลทริป (Trip) ===== -->
+      <div id="trip-view" class="view" hidden>
+        <!-- สร้างทริปใหม่ -->
+        <form id="trip-create-form" hidden>
+          <h1>✈️ จดบิลทริป</h1>
+          <label>ชื่อทริป *</label>
+          <input id="trip-title" required maxlength="100" placeholder="เช่น เที่ยวเชียงใหม่ ปีใหม่" />
+          <label>รายละเอียด (ไม่บังคับ)</label>
+          <textarea id="trip-note" maxlength="300" rows="2" placeholder="โน้ตเพิ่มเติม"></textarea>
+          <button type="submit" id="trip-create-submit" class="btn primary">สร้างทริป</button>
+        </form>
+
+        <!-- จัดการทริป -->
+        <div id="trip-manage" hidden>
+          <div class="card header-card">
+            <div class="flex-between">
+              <span id="trip-status-badge" class="badge"></span>
+              <span id="trip-owner-name" class="muted text-sm"></span>
+            </div>
+            <h1 id="trip-manage-title"></h1>
+            <p id="trip-manage-note" class="muted text-sm"></p>
+          </div>
+
+          <div class="card">
+            <h2>👥 สมาชิก (<span id="trip-mcount">0</span>)</h2>
+            <div id="trip-members-list" class="user-list"></div>
+            <div class="actions-group">
+              <button id="trip-btn-join" class="btn primary" hidden>🙋 เข้าร่วมทริปนี้</button>
+              <button id="trip-btn-share" class="btn secondary">🔗 ชวนเพื่อนเข้าร่วม</button>
+            </div>
+          </div>
+
+          <!-- เพิ่ม/แก้ไขรายการ -->
+          <form id="trip-item-form" class="card" hidden>
+            <h2 id="trip-item-form-title">➕ เพิ่มรายการ</h2>
+            <input type="hidden" id="trip-item-id" />
+            <label>ชื่อรายการ *</label>
+            <input id="trip-item-name" required maxlength="100" placeholder="เช่น มื้อเย็น, ค่าที่พัก" />
+            <label>ราคารวม (บาท) *</label>
+            <input id="trip-item-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="เช่น 1200.00" />
+            <label>ใครสำรองจ่าย *</label>
+            <select id="trip-item-payer"></select>
+            <label>หมายเหตุ (ไม่บังคับ)</label>
+            <input id="trip-item-remark" maxlength="300" placeholder="รายละเอียดเพิ่มเติม" />
+            <label>ใครร่วมจ่ายบ้าง (ติ๊กออก = ไม่ร่วม; ใส่ยอด = จ่ายตรงจำนวนนั้น)</label>
+            <div id="trip-item-shares" class="user-list"></div>
+            <div class="actions-group">
+              <button type="submit" id="trip-item-submit" class="btn primary">บันทึกรายการ</button>
+              <button type="button" id="trip-item-cancel" class="btn text-btn" hidden>ยกเลิกแก้ไข</button>
+            </div>
+          </form>
+
+          <button id="trip-btn-additem" class="btn outline" hidden>➕ เพิ่มรายการ</button>
+
+          <!-- รายการทั้งหมด -->
+          <div class="card">
+            <h2>🧾 รายการ (<span id="trip-icount">0</span>)</h2>
+            <div id="trip-items-list" class="charges-list"></div>
+          </div>
+
+          <!-- สรุป -->
+          <div id="trip-settle-box" class="card highlight-card" hidden>
+            <h2>💸 สรุปยอด</h2>
+            <div id="trip-settle-content"></div>
+          </div>
+
+          <div class="actions-group">
+            <button id="trip-btn-settle" class="btn secondary">📊 ดูสรุปยอด</button>
+            <button id="trip-btn-finalize" class="btn primary" hidden>✅ ปิดทริป & ส่งสรุปเข้ากลุ่ม</button>
+          </div>
+          <button id="trip-btn-refresh" class="btn text-btn">🔄 รีเฟรช</button>
+        </div>
+      </div>
+
       <div id="done" class="view center" hidden>
         <div class="big">✅</div>
         <p id="done-msg">สำเร็จ</p>
@@ -173,6 +247,7 @@
       </footer>
     </div>
 
+    <script src="./trip.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

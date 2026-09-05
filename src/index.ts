@@ -31,7 +31,17 @@ app.get('/liff/config.js', (_req, res) => {
 });
 
 // ---- Static: LIFF frontend + ไฟล์อัปโหลด (QR/สลิป) ----
-app.use('/liff', express.static(path.resolve('public/liff')));
+// no-cache สำหรับ HTML/JS/CSS ของ LIFF — กัน WebView cache แข็ง (แก้แล้วไม่อัปเดต)
+app.use(
+  '/liff',
+  express.static(path.resolve('public/liff'), {
+    setHeaders: (res, filePath) => {
+      if (/\.(html|js|css)$/.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+      }
+    },
+  }),
+);
 app.use('/uploads', express.static(path.resolve('data/uploads')));
 
 // ---- REST API สำหรับ LIFF ----

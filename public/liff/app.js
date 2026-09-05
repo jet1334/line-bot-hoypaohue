@@ -87,6 +87,7 @@ async function main() {
 
   if (view === 'manage') return initManage();
   if (view === 'detail') return initDetail();
+  if (view === 'trip') return window.initTrip({ params, getToken: () => accessToken, show, fail, $ });
   return initCreate();
 }
 
