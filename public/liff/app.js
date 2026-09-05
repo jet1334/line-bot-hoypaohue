@@ -1,10 +1,14 @@
 /* global liff, LIFF_CONFIG */
 
+const NAV_KEYS = ['view', 'billId', 'billid', 'id', 'tripId', 'tripid', 'groupId'];
+const NAV_STORE = 'billbot.nav';
+
 function getQueryParams() {
   const urlParams = new URLSearchParams(location.search);
 
-  // LINE LIFF passes query params in 'liff.state' or 'state' (after OAuth login redirect)
-  const liffState = urlParams.get('liff.state') || urlParams.get('state');
+  // LINE LIFF passes query params in 'liff.state' (after OAuth login redirect).
+  // อย่าใช้ 'state' เป็น fallback — ตัวนั้นคือ OAuth CSRF state (เช่น CSHITXURTIG) ไม่ใช่ path
+  const liffState = urlParams.get('liff.state');
   if (liffState) {
     try {
       let decodedState = decodeURIComponent(liffState);
@@ -37,6 +41,26 @@ function getQueryParams() {
     } catch (e) {}
   }
 
+  // ---- sessionStorage nav-intent ----
+  // LINE ตั้ง liffRedirectUri = endpoint เปล่า (/liff/) ทำให้ query หายหมดหลัง OAuth
+  // และไม่มี liff.state ให้กู้ → เก็บ intent ไว้ก่อน redirect แล้วดึงกลับมาหลัง login
+  const hasNav = NAV_KEYS.some((k) => urlParams.get(k));
+  if (hasNav) {
+    try {
+      const keep = {};
+      NAV_KEYS.forEach((k) => { const v = urlParams.get(k); if (v) keep[k] = v; });
+      sessionStorage.setItem(NAV_STORE, JSON.stringify(keep));
+    } catch (e) {}
+  } else {
+    // กลับมาจาก OAuth (มี code/state) แต่ query nav หาย → กู้จาก sessionStorage
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(NAV_STORE) || 'null');
+      if (saved) {
+        Object.entries(saved).forEach(([k, v]) => urlParams.set(k, v));
+      }
+    } catch (e) {}
+  }
+
   return urlParams;
 }
 
@@ -46,6 +70,9 @@ const tripId = params.get('tripId') || params.get('tripid');
 const rawView = params.get('view');
 // ถ้ามี tripId ให้ถือเป็นหน้าทริปเสมอ (กัน view หลุดหลัง OAuth แล้วตกไป detail/create)
 const view = rawView || (tripId ? 'trip' : billId ? 'detail' : 'create');
+
+// DEBUG: log routing (remove after verify)
+console.log('[main] rawView:', rawView, 'view:', view, 'billId:', billId, 'tripId:', tripId, 'params:', Object.fromEntries(params.entries()), 'href:', location.href, 'hash:', location.hash, 'search:', location.search);
 
 const $ = (id) => document.getElementById(id);
 

@@ -23,6 +23,9 @@ window.initTrip = async function initTrip({ params, getToken, show, fail, $ }) {
 
   show('trip-view');
 
+  // DEBUG: log params (remove after verify)
+  console.log('[trip] params:', Object.fromEntries(params.entries()), 'tripId:', tripId, 'groupId:', groupId, 'location:', location.href);
+
   // ไม่มี tripId → หน้าสร้างทริป
   if (!tripId) {
     $('trip-create-form').hidden = false;
