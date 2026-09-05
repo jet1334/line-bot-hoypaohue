@@ -272,3 +272,74 @@ function infoRow(label: string, value: string): FlexBox {
     ],
   };
 }
+
+// ===== การ์ดสรุปทริป (net settle) =====
+
+interface TripSummaryData {
+  title: string;
+  members: { id: string; displayName: string }[];
+  perMember: { memberId: string; paidSatang: number; owedSatang: number }[];
+  transfers: { from: string; to: string; satang: number }[];
+}
+
+/** การ์ดสรุปทริป — ยอดต่อคน + รายการโอน */
+export function tripSummaryCard(data: TripSummaryData): FlexMessage {
+  const nameOf = (memberId: string) =>
+    data.members.find((m) => m.id === memberId)?.displayName ?? 'สมาชิก';
+
+  const memberRows: messagingApi.FlexComponent[] = data.perMember.map((m) => {
+    const net = m.paidSatang - m.owedSatang;
+    const netColor = net > 0 ? COLOR.primary : net < 0 ? COLOR.danger : COLOR.gray;
+    const netLabel = net > 0 ? `รับคืน ${satangToBaht(net)}` : net < 0 ? `จ่ายเพิ่ม ${satangToBaht(-net)}` : 'พอดี';
+    return {
+      type: 'box',
+      layout: 'horizontal',
+      contents: [
+        { type: 'text', text: nameOf(m.memberId), size: 'sm', flex: 5, wrap: true },
+        { type: 'text', text: netLabel, size: 'xs', align: 'end', flex: 5, color: netColor },
+      ],
+    };
+  });
+
+  const transferRows: messagingApi.FlexComponent[] = data.transfers.length
+    ? data.transfers.map((t) => ({
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: `${nameOf(t.from)} → ${nameOf(t.to)}`, size: 'sm', flex: 6, wrap: true, color: COLOR.dark },
+          { type: 'text', text: `${satangToBaht(t.satang)} บ.`, size: 'sm', align: 'end', flex: 4, weight: 'bold', color: COLOR.primary },
+        ],
+      }))
+    : [{ type: 'text', text: '✅ สมดุลแล้ว ไม่มียอดต้องโอน', size: 'sm', color: COLOR.gray, wrap: true }];
+
+  return {
+    type: 'flex',
+    altText: `✈️ สรุปทริป ${data.title}`,
+    contents: {
+      type: 'bubble',
+      header: {
+        type: 'box',
+        layout: 'vertical',
+        backgroundColor: COLOR.primary,
+        paddingAll: 'lg',
+        contents: [
+          { type: 'text', text: '✈️ สรุปบิลทริป', color: '#FFFFFF', size: 'lg', weight: 'bold' },
+          { type: 'text', text: data.title, color: '#E8FFF3', size: 'xs', wrap: true },
+        ],
+      },
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          { type: 'text', text: 'ยอดสุทธิต่อคน', size: 'sm', weight: 'bold', color: COLOR.dark },
+          ...memberRows,
+          { type: 'separator', margin: 'md' },
+          { type: 'text', text: '💸 รายการโอน', size: 'sm', weight: 'bold', color: COLOR.dark, margin: 'md' },
+          ...transferRows,
+          versionTag(),
+        ],
+      },
+    },
+  };
+}
