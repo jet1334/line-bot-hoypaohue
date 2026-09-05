@@ -42,8 +42,10 @@ function getQueryParams() {
 
 const params = getQueryParams();
 const billId = params.get('billId') || params.get('billid') || params.get('id');
+const tripId = params.get('tripId') || params.get('tripid');
 const rawView = params.get('view');
-const view = rawView || (billId ? 'detail' : 'create');
+// ถ้ามี tripId ให้ถือเป็นหน้าทริปเสมอ (กัน view หลุดหลัง OAuth แล้วตกไป detail/create)
+const view = rawView || (tripId ? 'trip' : billId ? 'detail' : 'create');
 
 const $ = (id) => document.getElementById(id);
 
