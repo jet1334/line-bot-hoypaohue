@@ -254,7 +254,14 @@
       </footer>
     </div>
 
-    <script src="./trip.js"></script>
-    <script src="./app.js"></script>
+    <script>
+      // cache-bust: LINE WebView ยึด JS เก่าแม้ตอบ no-cache → ผูก version ท้าย src
+      (function () {
+        var v = (window.LIFF_CONFIG && LIFF_CONFIG.version) || Date.now();
+        ['./trip.js', './app.js'].forEach(function (s) {
+          document.write('<script src="' + s + '?v=' + v + '"><\/script>');
+        });
+      })();
+    </script>
   </body>
 </html>
