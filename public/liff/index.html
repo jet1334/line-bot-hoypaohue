@@ -6,6 +6,13 @@
     <title>บิลเรียกเก็บเงิน</title>
     <link rel="stylesheet" href="./style.css" />
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- console บนมือถือ: เปิดด้วย ?debug=1 (จำไว้ใน sessionStorage กัน query หายหลัง OAuth) -->
+    <script>
+      if (location.search.includes('debug=1')) sessionStorage.setItem('billbot.debug', '1');
+      if (sessionStorage.getItem('billbot.debug') === '1') {
+        document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script><script>eruda.init()<\/script>');
+      }
+    </script>
     <script src="./config.js"></script>
   </head>
   <body>
