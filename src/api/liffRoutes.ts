@@ -5,11 +5,22 @@ import { prisma } from '../db/prisma.js';
 import { upsertUser, upsertGroup, syncGroupMember } from '../features/user.js';
 import { createBill, getBillFull, finalizeBill, setCustomAmounts } from '../features/bill/billService.js';
 import { joinBill } from '../features/bill/participant.js';
+import {
+  createTrip,
+  getTripFull,
+  joinTrip,
+  addItem,
+  updateItem,
+  deleteItem,
+  summarizeTrip,
+  finalizeTrip,
+  type TripFull,
+} from '../features/trip/tripService.js';
 import { bahtToSatang, satangToBaht } from '../features/bill/split.js';
 import { saveBuffer, publicUrl } from '../storage/files.js';
-import { pushJoinCard, pushBillCard, notifyIfCycleCompleted } from '../line/notify.js';
+import { pushJoinCard, pushBillCard, notifyIfCycleCompleted, pushTripSummary } from '../line/notify.js';
 import { attachSlip, markCash, confirmCharge, rejectCharge, getChargeFull } from '../features/payment/paymentService.js';
-import { BillStatus, ChargeStatus, Recurrence, SplitMode } from '../constants.js';
+import { BillStatus, ChargeStatus, Recurrence, SplitMode, TripStatus } from '../constants.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 export const liffRouter = Router();
@@ -299,5 +310,241 @@ liffRouter.post('/charges/:id/confirm', async (req, res) => {
   } else {
     await rejectCharge(charge.id);
     res.json({ ok: true, action: 'rejected', completed: false });
+  }
+});
+
+// ========================= Trip Bill (จดบิลทริป) =========================
+
+/** map TripFull -> JSON (สตางค์ -> บาท) สำหรับ LIFF */
+function tripToJson(trip: TripFull, currentUserId: string | null) {
+  return {
+    id: trip.id,
+    title: trip.title,
+    note: trip.note,
+    status: trip.status,
+    ownerId: trip.ownerId,
+    ownerName: trip.owner.displayName,
+    groupId: trip.groupId,
+    members: trip.members.map((m) => ({
+      memberId: m.id,
+      userId: m.userId,
+      displayName: m.user.displayName,
+      pictureUrl: m.user.pictureUrl,
+    })),
+    items: trip.items.map((it) => ({
+      id: it.id,
+      name: it.name,
+      remark: it.remark,
+      priceBaht: satangToBaht(it.priceSatang),
+      payerId: it.payerId,
+      payerName: it.payer?.user.displayName ?? null,
+      shares: it.shares.map((s) => ({
+        memberId: s.memberId,
+        fixedBaht: s.fixedSatang != null ? satangToBaht(s.fixedSatang) : null,
+      })),
+    })),
+    currentUser: currentUserId
+      ? {
+        userId: currentUserId,
+        isOwner: trip.ownerId === currentUserId,
+        isMember: trip.members.some((m) => m.userId === currentUserId),
+        memberId: trip.members.find((m) => m.userId === currentUserId)?.id ?? null,
+      }
+      : null,
+  };
+}
+
+const shareSchema = z.object({
+  memberId: z.string().min(1),
+  fixedBaht: z.string().optional().nullable(),
+});
+
+const itemSchema = z.object({
+  name: z.string().min(1).max(100),
+  remark: z.string().max(300).optional().nullable(),
+  priceBaht: z.string().min(1),
+  payerId: z.string().optional().nullable(),
+  shares: z.array(shareSchema).optional(),
+});
+
+/** แปลง shares (บาท) จาก payload -> สตางค์ (throw ถ้ารูปแบบผิด) */
+function mapShares(shares?: { memberId: string; fixedBaht?: string | null }[]) {
+  if (!shares) return undefined;
+  return shares.map((s) => ({
+    memberId: s.memberId,
+    fixedSatang: s.fixedBaht != null && s.fixedBaht !== '' ? bahtToSatang(s.fixedBaht) : null,
+  }));
+}
+
+const createTripSchema = z.object({
+  groupId: z.string().min(1),
+  title: z.string().min(1).max(100),
+  note: z.string().max(300).optional(),
+});
+
+// POST /api/trips — สร้างทริปใหม่
+liffRouter.post('/trips', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const parsed = createTripSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  await upsertUser(profile.userId, profile.displayName, profile.pictureUrl);
+  await upsertGroup(parsed.data.groupId);
+
+  const trip = await createTrip({
+    groupId: parsed.data.groupId,
+    ownerId: profile.userId,
+    title: parsed.data.title,
+    note: parsed.data.note,
+  });
+  res.json({ ok: true, tripId: trip.id });
+});
+
+// GET /api/trips/:id — รายละเอียดทริป
+liffRouter.get('/trips/:id', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  const trip = await getTripFull(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'not found' });
+  res.json(tripToJson(trip, profile?.userId ?? null));
+});
+
+// POST /api/trips/:id/join — เข้าร่วมทริป
+liffRouter.post('/trips/:id/join', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const trip = await getTripFull(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'not found' });
+  if (trip.status !== TripStatus.OPEN) return res.status(400).json({ error: 'ทริปนี้ปิดแล้ว' });
+
+  await upsertUser(profile.userId, profile.displayName, profile.pictureUrl);
+  await syncGroupMember(trip.groupId, profile.userId);
+  const { created } = await joinTrip(trip.id, profile.userId);
+  const count = await prisma.tripMember.count({ where: { tripId: trip.id } });
+  res.json({ ok: true, created, count });
+});
+
+// POST /api/trips/:id/items — เพิ่มรายการ
+liffRouter.post('/trips/:id/items', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const trip = await getTripFull(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'not found' });
+  if (trip.status !== TripStatus.OPEN) return res.status(409).json({ error: 'ทริปนี้ปิดแล้ว' });
+  if (!trip.members.some((m) => m.userId === profile.userId)) {
+    return res.status(403).json({ error: 'ต้องเข้าร่วมทริปก่อนเพิ่มรายการ' });
+  }
+
+  const parsed = itemSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  try {
+    const item = await addItem(trip.id, {
+      name: parsed.data.name,
+      remark: parsed.data.remark ?? undefined,
+      priceSatang: bahtToSatang(parsed.data.priceBaht),
+      payerId: parsed.data.payerId ?? null,
+      shares: mapShares(parsed.data.shares),
+    });
+    res.json({ ok: true, itemId: item.id });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'invalid item' });
+  }
+});
+
+// PATCH /api/trips/:id/items/:itemId — แก้ไขรายการ
+liffRouter.patch('/trips/:id/items/:itemId', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const trip = await getTripFull(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'not found' });
+  if (trip.status !== TripStatus.OPEN) return res.status(409).json({ error: 'ทริปนี้ปิดแล้ว' });
+  if (!trip.members.some((m) => m.userId === profile.userId)) {
+    return res.status(403).json({ error: 'ต้องเข้าร่วมทริปก่อนแก้ไข' });
+  }
+
+  const parsed = itemSchema.partial().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  try {
+    await updateItem(trip.id, req.params.itemId, {
+      name: parsed.data.name,
+      remark: parsed.data.remark,
+      priceSatang: parsed.data.priceBaht != null ? bahtToSatang(parsed.data.priceBaht) : undefined,
+      payerId: parsed.data.payerId,
+      shares: mapShares(parsed.data.shares),
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'invalid item' });
+  }
+});
+
+// DELETE /api/trips/:id/items/:itemId — ลบรายการ
+liffRouter.delete('/trips/:id/items/:itemId', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const trip = await getTripFull(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'not found' });
+  if (trip.status !== TripStatus.OPEN) return res.status(409).json({ error: 'ทริปนี้ปิดแล้ว' });
+  if (!trip.members.some((m) => m.userId === profile.userId)) {
+    return res.status(403).json({ error: 'ต้องเข้าร่วมทริปก่อนลบ' });
+  }
+
+  await deleteItem(trip.id, req.params.itemId);
+  res.json({ ok: true });
+});
+
+// GET /api/trips/:id/settle — สรุปยอด net settle
+liffRouter.get('/trips/:id/settle', async (req, res) => {
+  const trip = await getTripFull(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'not found' });
+
+  try {
+    const { totals, transfers } = await summarizeTrip(trip.id);
+    const nameOf = (memberId: string) =>
+      trip.members.find((m) => m.id === memberId)?.user.displayName ?? 'สมาชิก';
+    res.json({
+      perMember: trip.members.map((m) => ({
+        memberId: m.id,
+        displayName: m.user.displayName,
+        paidBaht: satangToBaht(totals.paid.get(m.id) ?? 0),
+        owedBaht: satangToBaht(totals.owed.get(m.id) ?? 0),
+        netBaht: satangToBaht(totals.net.get(m.id) ?? 0),
+      })),
+      transfers: transfers.map((t) => ({
+        fromId: t.from,
+        fromName: nameOf(t.from),
+        toId: t.to,
+        toName: nameOf(t.to),
+        baht: satangToBaht(t.satang),
+      })),
+    });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'สรุปไม่สำเร็จ' });
+  }
+});
+
+// POST /api/trips/:id/finalize — ปิดทริป + ส่งสรุปเข้ากลุ่ม (เฉพาะเจ้าของ)
+liffRouter.post('/trips/:id/finalize', async (req, res) => {
+  const profile = await getProfileFromToken(req.headers.authorization);
+  if (!profile) return res.status(401).json({ error: 'unauthorized' });
+
+  const trip = await getTripFull(req.params.id);
+  if (!trip) return res.status(404).json({ error: 'not found' });
+  if (trip.ownerId !== profile.userId) return res.status(403).json({ error: 'เฉพาะเจ้าของทริปเท่านั้น' });
+  if (trip.status !== TripStatus.OPEN) return res.status(409).json({ error: 'ทริปนี้ปิดแล้ว' });
+
+  try {
+    await finalizeTrip(trip.id);
+    await pushTripSummary(trip.id);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(400).json({ error: e instanceof Error ? e.message : 'ปิดทริปไม่สำเร็จ' });
   }
 });

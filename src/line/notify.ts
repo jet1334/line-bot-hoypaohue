@@ -1,6 +1,8 @@
 import { lineClient } from './client.js';
 import { billCard, joinCard, summaryCard } from './flex.js';
 import { getBillFull } from '../features/bill/billService.js';
+import { summarizeTrip } from '../features/trip/tripService.js';
+import { satangToBaht } from '../features/bill/split.js';
 import { checkAndCompleteCycle } from '../features/cycle/cycleService.js';
 import { prisma } from '../db/prisma.js';
 
@@ -34,4 +36,30 @@ export async function notifyIfCycleCompleted(cycleId: string): Promise<boolean> 
 
   await lineClient.pushMessage({ to: bill.groupId, messages: [summaryCard(bill, cycleId)] });
   return true;
+}
+
+/** ส่งข้อความสรุปทริป (net settle) เข้ากลุ่ม — v1 เป็น text (flex ใน Task 8) */
+export async function pushTripSummary(tripId: string) {
+  const { trip, totals, transfers } = await summarizeTrip(tripId);
+  const nameOf = (memberId: string) =>
+    trip.members.find((m) => m.id === memberId)?.user.displayName ?? 'สมาชิก';
+
+  const lines: string[] = [`🧾 สรุปทริป: ${trip.title}`, ''];
+  lines.push('ยอดต่อคน (จ่ายจริง / ส่วนที่ต้องรับผิดชอบ):');
+  for (const m of trip.members) {
+    const paid = totals.paid.get(m.id) ?? 0;
+    const owed = totals.owed.get(m.id) ?? 0;
+    lines.push(`• ${m.user.displayName}: จ่าย ${satangToBaht(paid)} / ควรจ่าย ${satangToBaht(owed)}`);
+  }
+  lines.push('');
+  if (transfers.length === 0) {
+    lines.push('✅ ไม่มียอดต้องโอน (สมดุลแล้ว)');
+  } else {
+    lines.push('💸 รายการโอน:');
+    for (const t of transfers) {
+      lines.push(`• ${nameOf(t.from)} → ${nameOf(t.to)}: ${satangToBaht(t.satang)} บาท`);
+    }
+  }
+
+  await lineClient.pushMessage({ to: trip.groupId, messages: [{ type: 'text', text: lines.join('\n') }] });
 }
