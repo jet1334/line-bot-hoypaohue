@@ -98,18 +98,22 @@ async function replyCreateBillPrompt(event: MessageEvent) {
     return;
   }
   await upsertGroup(src.groupId);
-  const url = liffUrl({ view: 'create', groupId: src.groupId });
+  const billUrl = liffUrl({ view: 'create', groupId: src.groupId });
+  const tripUrl = liffUrl({ view: 'trip', groupId: src.groupId });
   await lineClient.replyMessage({
     replyToken: event.replyToken,
     messages: [
       {
         type: 'template',
-        altText: 'สร้างบิลใหม่',
+        altText: 'เลือกประเภทบิล',
         template: {
           type: 'buttons',
           title: '🧾 สร้างบิลใหม่',
-          text: 'กดปุ่มด้านล่างเพื่อกรอกรายละเอียดบิล',
-          actions: [{ type: 'uri', label: '➕ สร้างบิล', uri: url }],
+          text: 'เลือกระบบที่ต้องการใช้',
+          actions: [
+            { type: 'uri', label: '💰 บิลเก็บเงิน', uri: billUrl },
+            { type: 'uri', label: '✈️ จดบิลทริป', uri: tripUrl },
+          ],
         },
       },
     ],
