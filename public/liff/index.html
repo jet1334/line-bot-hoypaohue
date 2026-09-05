@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <title>บิลเรียกเก็บเงิน</title>
     <link rel="stylesheet" href="./style.css" />
+    <!-- inline: กัน style.css ถูก cache แล้วกฎนี้ไม่มาผล — [hidden] ต้องชนะ .modal{display:flex} -->
+    <style>[hidden] { display: none !important; }</style>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <!-- console บนมือถือ: เปิดด้วย ?debug=1 (จำไว้ใน sessionStorage กัน query หายหลัง OAuth) -->
     <script>

@@ -154,6 +154,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .owner-audit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 
 /* Modal Lightbox */
+/* [hidden] ต้องชนะ display ของ class (เช่น .modal{display:flex}) — UA stylesheet specificity ต่ำกว่า */
+[hidden] { display: none !important; }
+
 .modal {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.7);
