@@ -25,6 +25,13 @@ window.initTrip = async function initTrip({ params, getToken, show, fail, $ }) {
 
   // DEBUG: log params (remove after verify)
   console.log('[trip] params:', Object.fromEntries(params.entries()), 'tripId:', tripId, 'groupId:', groupId, 'location:', location.href);
+  // DEBUG: element ไหนมองเห็นอยู่บ้าง (หา popup ค้าง)
+  setTimeout(() => {
+    const vis = [...document.querySelectorAll('#app > *, .modal, .pay-form')]
+      .filter((el) => !el.hidden && getComputedStyle(el).display !== 'none')
+      .map((el) => el.id || el.className);
+    console.log('[visible]', vis);
+  }, 500);
 
   // ไม่มี tripId → หน้าสร้างทริป
   if (!tripId) {

@@ -78,6 +78,8 @@ const $ = (id) => document.getElementById(id);
 
 function show(id) {
   document.querySelectorAll('.view').forEach((v) => (v.hidden = true));
+  // ปิด modal ค้าง (class 'modal' ไม่ใช่ 'view' — show() เดิมไม่แตะ)
+  document.querySelectorAll('.modal').forEach((m) => (m.hidden = true));
   $('loading').hidden = true;
   $(id).hidden = false;
 }
