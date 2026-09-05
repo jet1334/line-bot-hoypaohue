@@ -41,22 +41,22 @@ function getQueryParams() {
     } catch (e) {}
   }
 
-  // ---- sessionStorage nav-intent ----
-  // LINE ตั้ง liffRedirectUri = endpoint เปล่า (/liff/) ทำให้ query หายหมดหลัง OAuth
-  // และไม่มี liff.state ให้กู้ → เก็บ intent ไว้ก่อน redirect แล้วดึงกลับมาหลัง login
+  // ---- nav-intent (localStorage + TTL) ----
+  // LINE ตั้ง liffRedirectUri = endpoint เปล่า (/liff/) query อาจหายหลัง OAuth
+  // ใช้ localStorage ไม่ใช่ sessionStorage เพราะ LINE อาจเปิด WebView ใหม่หลัง login (session หาย)
   const hasNav = NAV_KEYS.some((k) => urlParams.get(k));
   if (hasNav) {
     try {
-      const keep = {};
+      const keep = { _t: Date.now() };
       NAV_KEYS.forEach((k) => { const v = urlParams.get(k); if (v) keep[k] = v; });
-      sessionStorage.setItem(NAV_STORE, JSON.stringify(keep));
+      localStorage.setItem(NAV_STORE, JSON.stringify(keep));
     } catch (e) {}
   } else {
-    // กลับมาจาก OAuth (มี code/state) แต่ query nav หาย → กู้จาก sessionStorage
+    // กลับมาจาก OAuth (มี code/state) แต่ query nav หาย → กู้คืน ถ้ายังไม่เกิน 10 นาที
     try {
-      const saved = JSON.parse(sessionStorage.getItem(NAV_STORE) || 'null');
-      if (saved) {
-        Object.entries(saved).forEach(([k, v]) => urlParams.set(k, v));
+      const saved = JSON.parse(localStorage.getItem(NAV_STORE) || 'null');
+      if (saved && Date.now() - (saved._t || 0) < 10 * 60 * 1000) {
+        Object.entries(saved).forEach(([k, v]) => { if (k !== '_t') urlParams.set(k, v); });
       }
     } catch (e) {}
   }
