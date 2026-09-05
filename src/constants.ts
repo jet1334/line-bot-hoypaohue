@@ -20,3 +20,5 @@ export const CycleStatus = { COLLECTING: 'COLLECTING', COMPLETED: 'COMPLETED' } 
 export const ChargeStatus = { UNPAID: 'UNPAID', PENDING: 'PENDING', PAID: 'PAID' } as const;
 
 export const PaymentMethod = { SLIP: 'SLIP', CASH: 'CASH' } as const;
+
+export const TripStatus = { OPEN: 'OPEN', DONE: 'DONE', CANCELLED: 'CANCELLED' } as const;
